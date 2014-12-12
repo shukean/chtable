@@ -5,6 +5,7 @@
 #define CHTABLE_H
 #include <vector>
 #include <tuple>
+#include <memory>
 namespace{
 	bool isPrime(unsigned x)
 	{
@@ -54,12 +55,12 @@ struct Slot{
 	V val;
 };
 
-template <class K, class V>
+template <class K, class V, class Alloc = std::allocator< Slot<K, V> >>
 class Chtable{
 	unsigned count_;
 	unsigned slots_;
 	unsigned tables_;
-	std::vector< Slot<K, V> > array_;
+	std::vector< Slot<K, V>, Alloc > array_;
 	chtable::Hash<K> uhash_;
 	
 	unsigned index(unsigned table, unsigned hash) const
@@ -93,8 +94,8 @@ public:
 };
 
 //.......................... SEARCH ......................................
-template<class K, class V>
-std::tuple<V, bool> Chtable<K,V>::
+template<class K, class V, class Alloc>
+std::tuple<V, bool> Chtable<K,V, Alloc>::
 Get(K const & key) const
 {
 	for(unsigned i = 0; i < tables_; i++) {
@@ -109,8 +110,8 @@ Get(K const & key) const
 }
 
 //............................ INSERTION ..................................
-template<class K, class V>
-bool Chtable<K, V>::
+template<class K, class V, class Alloc>
+bool Chtable<K, V, Alloc>::
 replace(K const & key, V val)
 {
 	for(unsigned i = 0; i < tables_; i++) {
@@ -125,8 +126,8 @@ replace(K const & key, V val)
 	return false;
 }
 
-template<class K, class V>
-bool Chtable<K, V>::
+template<class K, class V, class Alloc>
+bool Chtable<K, V, Alloc>::
 insert(K & key, V & val)
 {
 	for(unsigned i = 0, timeout = tables_ * count_ + 1; timeout != 0; timeout--) {
@@ -149,8 +150,8 @@ insert(K & key, V & val)
 	}
 	return false;
 }
-template<class K, class V>
-bool Chtable<K, V>::
+template<class K, class V, class Alloc>
+bool Chtable<K, V, Alloc>::
 Set(K key, V val)
 {
 	if(replace(key, val)) {
@@ -169,8 +170,8 @@ Set(K key, V val)
 }
 
 //................................... DELETION .......................
-template<class K, class V>
-bool Chtable<K, V>::
+template<class K, class V, class Alloc>
+bool Chtable<K, V, Alloc>::
 Delete(K const & key)
 {
 	for(unsigned i = 0; i < tables_; i++) {
