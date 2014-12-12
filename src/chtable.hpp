@@ -67,10 +67,6 @@ class Chtable{
 		return table * slots_ + hash;
 	}
 	
-	unsigned totalSlots() const
-	{
-		return tables_ * slots_;
-	}
 	bool replace(K const & key, V val);
 	bool insert(K & key, V & val);
 public:
@@ -81,13 +77,15 @@ public:
 		slots_( nextPrime(size / tableCount + 1) ),
 		tables_(tableCount),
 		
-		array_(totalSlots()),
+		array_(capacity()),
 		
 		uhash_(tables_, slots_)
 	{}
 	
 	Chtable() : Chtable(13, 2) {}
 
+	unsigned count() const { return count_; }
+	unsigned capacity() const { return tables_ * slots_; }
 	std::tuple<V, bool> Get(K const & key) const;
 	bool Set(K key, V val);
 	bool Delete(K const & key);
@@ -159,7 +157,7 @@ Set(K key, V val)
 		return true;
 	}
 	while(not insert(key, val)) {
-		Chtable<K, V> bigger( nextPrime(totalSlots() * 2) , tables_);
+		Chtable<K, V> bigger( nextPrime(capacity() * 2) , tables_);
 		for(auto & slot : array_) {
 			if(slot.present) {
 				bigger.Set(slot.key, slot.val);
