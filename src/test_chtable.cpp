@@ -75,31 +75,35 @@ int main(void)
 			fputs("membership error\n", stderr);
 	}
 	*/
-	/*
+	
 	// test find
-	for(int i = 0; i < LENGTH; i++)
+	for(unsigned i = 0; i < LENGTH; i++)
 	{
-		unsigned const * result = chtable_find(table, data + i);
-		if( result == NULL)
+		bool found;
+		unsigned val;
+		std::tie(val, found) = t.Get(data[i]);
+		if( !found )
 			fputs("find error\n", stderr);
-		else if( *result != data[i])
+		else if( val != i)
 			fputs("data error 3\n", stderr);
 	}
-	*/
+	
 	// test removal
-	/*
-	for(int i = 0; i < LENGTH; i++)
+	
+	for(unsigned i = 0; i < LENGTH; i++)
 	{
-		unsigned const * result = chtable_find(table, data + i);
-		if( result != NULL)
+		bool found;
+		unsigned val;
+		std::tie(val, found) = t.Get(data[i]);
+		if( found )
 		{
-			chtable_delete(table, data + i);
+			t.Delete(data[i]);
 			
-			result = chtable_find(table, data + i);
-			if( result != NULL)
+			std::tie(val, found) = t.Get(data[i]);
+			if( found )
 				puts("removal error");
 		}
 	}
-	*/
+	
 	return 0;
  }
