@@ -1,10 +1,9 @@
 #include <iostream>
+#include <cassert>
 #include "chtable.hpp"
 #include "hash_mixer.hpp"
-#include <cassert>
 
-#define LENGTH 30000
-#define NESTCOUNT 2
+
 
 namespace chtable{
 template <>
@@ -23,35 +22,76 @@ static inline unsigned random(unsigned x)
 	return (x * 16807) % ((2 << 31) - 1);
 }
 
-unsigned data [LENGTH];
-void init(void)
-{
-	unsigned seed = 10;
-	for(int i = 0; i < LENGTH; i++)
-	{
-		seed = random(seed);
-		data[i] = seed;
-	}
-}
-int main(void)
-{
-	init();
+
+
+template<unsigned LENGTH>
+class ChtableTester{
+	unsigned data [LENGTH];
 	Chtable<unsigned, unsigned > t;
-	unsigned cycles = 0;
-	for(unsigned i = 0; i < LENGTH; i++) {
-		bool good = t.Set(data[i], i);
-		
-		if(good) {
-			unsigned val;
-			std::tie(val, good) = t.Get(data[i]);
-			assert(good);
-			assert(val == i);
-		} else {
-			cycles++;
+
+public:
+	ChtableTester()
+	{
+		unsigned seed = 10;
+		for(int i = 0; i < LENGTH; i++)
+		{
+			seed = random(seed);
+			data[i] = seed;
 		}
 	}
-	std::cout << "cycles: " << cycles << std::endl;
 	
+	void testInsert()
+	{
+		for(unsigned i = 0; i < LENGTH; i++) {
+			bool good = t.Set(data[i], i);
+			assert(good);
+
+			bool found;
+			unsigned val;
+			std::tie(val, found) = t.Get(data[i]);
+			assert(found);
+			assert(val == i);
+		}
+	}
+	void testFind()
+	{
+		for(unsigned i = 0; i < LENGTH; i++)
+		{
+			bool found;
+			unsigned val;
+			std::tie(val, found) = t.Get(data[i]);
+			if( !found )
+				fputs("find error\n", stderr);
+			else if( val != i)
+				fputs("data error 3\n", stderr);
+		}
+	}
+	
+	void testDelete()
+	{
+		for(unsigned i = 0; i < LENGTH; i++)
+		{
+			bool found;
+			unsigned val;
+			std::tie(val, found) = t.Get(data[i]);
+			if( found )
+			{
+				t.Delete(data[i]);
+				
+				std::tie(val, found) = t.Get(data[i]);
+				if( found )
+					puts("removal error");
+			}
+		}
+	}
+};
+int main(void)
+{
+	
+	ChtableTester<30000> t;
+	t.testInsert();
+	t.testFind();
+	t.testDelete();
 	
 	/*
 	// test iterator
@@ -77,33 +117,11 @@ int main(void)
 	*/
 	
 	// test find
-	for(unsigned i = 0; i < LENGTH; i++)
-	{
-		bool found;
-		unsigned val;
-		std::tie(val, found) = t.Get(data[i]);
-		if( !found )
-			fputs("find error\n", stderr);
-		else if( val != i)
-			fputs("data error 3\n", stderr);
-	}
+	
 	
 	// test removal
 	
-	for(unsigned i = 0; i < LENGTH; i++)
-	{
-		bool found;
-		unsigned val;
-		std::tie(val, found) = t.Get(data[i]);
-		if( found )
-		{
-			t.Delete(data[i]);
-			
-			std::tie(val, found) = t.Get(data[i]);
-			if( found )
-				puts("removal error");
-		}
-	}
+	
 	
 	return 0;
  }
