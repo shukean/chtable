@@ -36,7 +36,7 @@ void init(void)
 int main(void)
 {
 	init();
-	Chtable<unsigned, unsigned > t(LENGTH * 1000 / 800, 2);
+	Chtable<unsigned, unsigned > t;
 	unsigned cycles = 0;
 	for(unsigned i = 0; i < LENGTH; i++) {
 		bool good = t.Set(data[i], i);
