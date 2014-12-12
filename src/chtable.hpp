@@ -47,15 +47,19 @@ namespace chtable{
 	struct Hash;
 
 }
+template <class K, class V>
+struct Slot{
+	unsigned present;
+	K key;
+	V val;
+};
 
 template <class K, class V>
 class Chtable{
 	unsigned count_;
 	unsigned slots_;
 	unsigned tables_;
-	std::vector< bool > present_;
-	std::vector< K > keys_;
-	std::vector< V > values_;
+	std::vector< Slot<K, V> > array_;
 	chtable::Hash<K> uhash_;
 	
 	unsigned index(unsigned table, unsigned hash) const
@@ -77,9 +81,7 @@ public:
 		slots_( nextPrime(size / tableCount + 1) ),
 		tables_(tableCount),
 		
-		present_(totalSlots()),
-		keys_(totalSlots()),
-		values_(totalSlots()),
+		array_(totalSlots()),
 		
 		uhash_(tables_, slots_)
 	{}
@@ -100,8 +102,9 @@ Get(K const & key) const
 	for(unsigned i = 0; i < tables_; i++) {
 		unsigned hash = uhash_(i, key) % slots_;
 		unsigned j = index(i, hash);
-		if(present_[j] and key == keys_[j]) {
-			return std::make_tuple(values_[j], true);
+		auto const & slot = array_[j];
+		if(slot.present and key == slot.key) {
+			return std::make_tuple(slot.val, true);
 		}
 	}
 	return std::make_tuple(V(), false);
@@ -115,8 +118,9 @@ replace(K const & key, V val)
 	for(unsigned i = 0; i < tables_; i++) {
 		unsigned hash = uhash_(i, key) % slots_;
 		unsigned j = index(i, hash);
-		if(present_[j] and key == keys_[j]) {
-			values_[j] = val;
+		auto & slot = array_[j];
+		if(slot.present and key == slot.key) {
+			slot.val = val;
 			return true;
 		}
 	}
@@ -130,17 +134,17 @@ insert(K & key, V & val)
 	for(unsigned i = 0, timeout = tables_ * count_ + 1; timeout != 0; timeout--) {
 		unsigned hash = uhash_(i, key) % slots_;
 		unsigned j = index(i, hash);
+		auto & slot = array_[j];
+		std::swap(slot.key, key);
+		std::swap(slot.val, val);
 		
-		std::swap(keys_[j], key);
-		std::swap(values_[j], val);
-		
-		if(present_[j]) {
+		if(slot.present) {
 			i++;
 			if(i == tables_) {
 				i = 0;
 			}
 		} else {
-			present_[j] = true;
+			slot.present = true;
 			count_++;
 			return true;
 		}
@@ -156,9 +160,9 @@ Set(K key, V val)
 	}
 	while(not insert(key, val)) {
 		Chtable<K, V> bigger( nextPrime(totalSlots() * 2) , tables_);
-		for(unsigned i = 0; i < totalSlots(); i++) {
-			if(present_[i]) {
-				bigger.Set(keys_[i], values_[i]);
+		for(auto & slot : array_) {
+			if(slot.present) {
+				bigger.Set(slot.key, slot.val);
 			}
 		}
 		std::swap(*this, bigger);
@@ -174,9 +178,10 @@ Delete(K const & key)
 	for(unsigned i = 0; i < tables_; i++) {
 		unsigned hash = uhash_(i, key) % slots_;
 		unsigned j = index(i, hash);
-		if(present_[j] and key == keys_[j]) {
-			present_[j] = false;
-			values_[j] = V();
+		auto & slot = array_[j];
+		if(slot.present and key == slot.key) {
+			slot.present = false;
+			slot.val = V();
 			count_--;
 			return true;
 		}
