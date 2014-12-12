@@ -91,6 +91,50 @@ public:
 	bool Set(K key, V val);
 	bool Delete(K const & key);
 	
+	class Iter{
+		unsigned i;
+		Chtable<K, V, Alloc> const * t;
+	public:
+		Iter(unsigned index, Chtable<K, V, Alloc> * table)
+		{
+			i = index;
+			t = table;
+		}
+		bool operator != (Iter const & other)
+		{
+			return other.i != i and other.t != t;
+		}
+		const Iter & operator++()
+		{
+			if(i == t->capacity())
+				return *this;
+			while(1) {
+				i++;
+				if(i < t->capacity())
+					return *this;
+				if(t->array_[i].present)
+					return *this;
+			}
+			return *this;
+		}
+		const Slot<K, V> & operator*()
+		{
+			return t->array_[i];
+		}
+	};
+	
+	Iter begin()
+	{
+		unsigned i = 0;
+		while(i < capacity() and not array_[i].present)
+			i++;
+		return Iter(i, this);
+	}
+	Iter end()
+	{
+		Iter iter(capacity(), this);
+		return Iter(capacity(), this);
+	}
 };
 
 //.......................... SEARCH ......................................

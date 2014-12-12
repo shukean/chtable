@@ -28,6 +28,7 @@ static inline unsigned random(unsigned x)
 template<unsigned LENGTH>
 struct ChtableTester{
 	unsigned data [LENGTH];
+	unsigned membership[LENGTH];
 	Chtable<unsigned, unsigned > t;
 	double maxLoad;
 	double count;
@@ -41,6 +42,7 @@ struct ChtableTester{
 		{
 			seed = random(seed);
 			data[i] = seed;
+			membership[i] = 0;
 		}
 		
 		maxLoad = 0;
@@ -101,6 +103,15 @@ struct ChtableTester{
 			}
 		}
 	}
+	void testIterator()
+	{
+		for(auto & pair : t)
+		{
+			unsigned i = pair.val;
+			if(data[i] != pair.key)
+				fputs("data error\n", stderr);
+		}
+	}
 };
 int main(void)
 {
@@ -116,29 +127,9 @@ int main(void)
 		"time: " << insertTime << std::endl;
 	t.testFind();
 	t.testDelete();
-	
-	/*
+	t.testIterator();
 	// test iterator
-	int membership[128]={0};
-	struct chtable_Iterator it;
-	chtable_IteratorInit(&it, map);
-	while(chtable_IteratorNext(&it))
-	{
-		int key, val;
-		if(chtable_IteratorGet(&it, &key, &val) != 0)
-			fputs("iterator failure\n", stderr);
-		if(key != val)
-			fputs("data error\n", stderr);
-		if(key < 0 || key > 127)
-			fputs("data error 2\n", stderr);
-		membership[key]++;
-	}
-	for(int i = 0; i < 128; i++)
-	{
-		if(membership[i] != 1)
-			fputs("membership error\n", stderr);
-	}
-	*/
+	
 	
 	// test find
 	
