@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cassert>
+#include <ctime>
 #include "chtable.hpp"
 #include "hash_mixer.hpp"
 
@@ -25,12 +26,15 @@ static inline unsigned random(unsigned x)
 
 
 template<unsigned LENGTH>
-class ChtableTester{
+struct ChtableTester{
 	unsigned data [LENGTH];
 	Chtable<unsigned, unsigned > t;
-
-public:
+	double maxLoad;
+	double count;
+	double capacity;
+	double totalLoad;
 	ChtableTester()
+		:t(13, 2)
 	{
 		unsigned seed = 10;
 		for(int i = 0; i < LENGTH; i++)
@@ -38,10 +42,14 @@ public:
 			seed = random(seed);
 			data[i] = seed;
 		}
+		
+		maxLoad = 0;
+		totalLoad = 0;
 	}
 	
-	void testInsert()
+	clock_t testInsert()
 	{
+		clock_t t1 = clock();
 		for(unsigned i = 0; i < LENGTH; i++) {
 			bool good = t.Set(data[i], i);
 			assert(good);
@@ -51,7 +59,16 @@ public:
 			std::tie(val, found) = t.Get(data[i]);
 			assert(found);
 			assert(val == i);
+			
+			count = t.count();
+			capacity = t.capacity();
+			double load = count / capacity;
+			totalLoad += load;
+			if(load > maxLoad)
+				maxLoad = load;
 		}
+		clock_t t2 = clock();
+		return t2 - t1;
 	}
 	void testFind()
 	{
@@ -89,7 +106,14 @@ int main(void)
 {
 	
 	ChtableTester<30000> t;
-	t.testInsert();
+	clock_t insertTime = t.testInsert();
+	
+	std::cout << "count: " << t.count << std::endl <<
+		"capacity: " << t.capacity << std::endl <<
+		"max load: " << t.maxLoad << std::endl <<
+		"current load: " << t.count / t.capacity << std::endl << 
+		"average load: " << t.totalLoad / t.count << std::endl <<
+		"time: " << insertTime << std::endl;
 	t.testFind();
 	t.testDelete();
 	
