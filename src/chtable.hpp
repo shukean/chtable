@@ -81,8 +81,6 @@ struct Bucket{
 			if(keys[i] == key)
 			{
 				count--;
-				//std::swap(keys[i], keys[count]);
-				//std::swap(vals[i], vals[count]);
 				keys[i] = std::move(keys[count]);
 				vals[i] = std::move(vals[count]);
 				return true;
@@ -142,7 +140,7 @@ public:
 	struct Pair{
 		K key;
 		V val;
-		Pair(K k, V v):key(k), val(v){}
+		Pair(K k, V v):key(std::move(k)), val(std::move(v)){}
 	};
 	class Iter{
 		unsigned bucket_i;
@@ -190,8 +188,8 @@ public:
 		Pair operator*()
 		{
 			auto & bucket = t->array_[bucket_i];
-			auto & key = bucket.keys[slot_i];
-			auto & val = bucket.vals[slot_i];
+			auto key = bucket.keys[slot_i];
+			auto val = bucket.vals[slot_i];
 			return Pair(key, val);
 		}
 	};
@@ -246,8 +244,9 @@ private:
 		return false;
 	}
 	// try to infiltrate a table.
-	// true for peaceful infiltration
-	// false for eviction
+	// that means inserting the key into one of its designated buckets.
+	// returns true for peaceful infiltration.
+	// returns false for eviction.
 	bool infiltrate(K & key, V & val, unsigned i)
 	{
 		unsigned hash = uhash_(i, key) % table_buckets_;
@@ -256,7 +255,7 @@ private:
 		auto & bucket = array_[bucket_i];
 		if(not bucket.full())
 		{
-			bucket.Insert(key, val);
+			bucket.Insert(std::move(key), std::move(val));
 			count_++;
 			return true;
 		}
@@ -270,6 +269,7 @@ private:
 	// try to set a new value.
 	// true if successful.
 	// false if cycle.
+	// pre condition: key is not in the table
 	bool trySet(K key, V val)
 	{
 		K const original = key;
@@ -308,7 +308,6 @@ private:
 			{
 				return false;
 			}
-			
 		}
 		std::swap(*this, bigger);
 		return true;
