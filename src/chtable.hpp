@@ -64,6 +64,7 @@ struct Bucket{
 	unsigned count;
 	K keys[slots];
 	V vals[slots];
+	Bucket():count(0){}
 	bool full() const
 	{
 		return count == slots;
@@ -154,51 +155,44 @@ public:
 		Pair(K k, V v):key(std::move(k)), val(std::move(v)){}
 	};
 	class Iter{
+		Table<K, V, slots, Alloc> const * t;
 		unsigned bucket_i;
 		unsigned slot_i;
-		Table<K, V, slots, Alloc> const * t;
+		
 	public:
-		Iter(unsigned bucket, unsigned slot, Table<K, V, slots, Alloc> const * table)
+		Iter(Table<K, V, slots, Alloc> const * table, unsigned bucket, unsigned slot)
 		:
+			t(table),
 			bucket_i(bucket),
-			slot_i(slot),
-			t(table)
+			slot_i(slot)
 		{}
 		bool operator != (Iter const & other)
 		{
-			return other.bucket_i != bucket_i or other.slot_i != slot_i or other.t != t;
+			return not (other.t == t and other.bucket_i == bucket_i and other.slot_i == slot_i);
 		}
 		const Iter & operator++()
 		{
-			if(t == nullptr)
-			{
-				return *this;
-			}
-			
 			slot_i++;
-			if(slot_i < t->array_[bucket_i].count)
-			{
-				return *this;
-			}
-			
-			slot_i = 0;
-			bucket_i++;
-			while(bucket_i < t->total_buckets_)
-			{
+			do{
 				if(slot_i < t->array_[bucket_i].count)
 				{
 					return *this;
 				}
-				bucket_i++;
-			}
-			slot_i = -1;
-			bucket_i = -1;
+				else
+				{
+					slot_i = 0;
+					bucket_i++;
+				}
+			}while(bucket_i < t->total_buckets_);
+	
+			slot_i = 0;
+			bucket_i = 0;
 			t = nullptr;
 			return *this;
 		}
 		Pair operator*()
 		{
-			auto & bucket = t->array_[bucket_i];
+			auto const & bucket = t->array_[bucket_i];
 			auto key = bucket.keys[slot_i];
 			auto val = bucket.vals[slot_i];
 			return Pair(key, val);
@@ -207,13 +201,13 @@ public:
 	
 	Iter begin() const
 	{
-		Iter iter(0, -1, this);
+		Iter iter(this, 0, -1);
 		++iter;
 		return iter;
 	}
 	Iter end() const
 	{
-		return Iter(-1, -1, nullptr);
+		return Iter(nullptr, 0, 0);
 	}
 	//.......................... SEARCH ......................................
 	std::tuple<V, bool> Get(K const & key) const

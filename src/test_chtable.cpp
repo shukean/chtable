@@ -99,14 +99,17 @@ struct TableTester{
 	}
 	clock_t testIterator()
 	{
+		unsigned count = 0;
 		clock_t t1 = clock();
 		for(auto pair : t)
 		{
 			unsigned i = pair.val;
 			if(data[i] != pair.key)
 				fputs("iterator error\n", stderr);
+			count++;
 		}
 		clock_t t2 = clock();
+		assert(count == LENGTH);
 		return t2 - t1;
 	}
 };
