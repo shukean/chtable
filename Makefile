@@ -5,8 +5,9 @@ all: a.out
 
 install:
 	mkdir -p /usr/include/chtable
-	cp libchtable.a /usr/lib
 	cp src/chtable.hpp /usr/include/chtable
+	cp src/matrix_hash.hpp /usr/include/chtable
+	cp src/hash_mixer.hpp /user/include/chtable
 
 a.out:  src/test_chtable.o
 	$(CC) -o $@ $<
