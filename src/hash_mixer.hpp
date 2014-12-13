@@ -1,3 +1,6 @@
+// Copyright (c) 2014, ultramailman
+// This file is licensed under the MIT License.
+
 #ifndef UNI_HASH_H
 #define UNI_HASH_H
 #include "matrix_hash.hpp"

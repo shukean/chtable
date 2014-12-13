@@ -1,3 +1,6 @@
+// Copyright (c) 2014, ultramailman
+// This file is licensed under the MIT License.
+
 #ifndef MATRIX_HASH_H
 #define MATRIX_HASH_H
 #include <climits>
