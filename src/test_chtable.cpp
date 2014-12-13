@@ -6,7 +6,7 @@
 
 
 
-namespace chtable{
+namespace cuckoo{
 template <>
 class Hash<unsigned> {
 	HashMixer<unsigned> hashf_;
@@ -26,15 +26,15 @@ static inline unsigned random(unsigned x)
 
 
 template<unsigned LENGTH>
-struct ChtableTester{
+struct TableTester{
 	unsigned data [LENGTH];
 	unsigned membership[LENGTH];
-	Chtable<unsigned, unsigned> t;
+	cuckoo::Table<unsigned, unsigned> t;
 	double maxLoad;
 	double count;
 	double capacity;
 	double totalLoad;
-	ChtableTester()
+	TableTester()
 		:t(30000, 2)
 	{
 		unsigned seed = 10;
@@ -124,7 +124,7 @@ struct ChtableTester{
 int main(void)
 {
 	
-	ChtableTester<30000> t;
+	TableTester<30000> t;
 	clock_t insertTime = t.testInsert();
 	
 	std::cout << "count: " << t.count << std::endl <<

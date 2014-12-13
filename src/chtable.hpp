@@ -43,11 +43,10 @@ namespace{
 }
 
 
-namespace chtable{
-	template <class K>
-	struct Hash;
+namespace cuckoo{
+template <class K>
+struct Hash;
 
-}
 template <class K, class V, unsigned slots>
 struct Bucket{
 	unsigned count;
@@ -95,7 +94,7 @@ template <
 	unsigned slots = 2,
 	class Alloc = std::allocator< Bucket<K, V, slots> >
 >
-class Chtable{
+class Table{
 	unsigned count_;
 	unsigned tables_;
 	unsigned table_buckets_;
@@ -103,10 +102,10 @@ class Chtable{
 	unsigned total_slots_;
 	
 	std::vector< Bucket<K, V, slots>, Alloc > array_;
-	chtable::Hash<K> uhash_;
+	Hash<K> uhash_;
 	
 public:
-	Chtable( unsigned size , unsigned tables )
+	Table( unsigned size , unsigned tables )
 	:
 		count_(0),
 		
@@ -120,7 +119,7 @@ public:
 		uhash_(tables_, table_buckets_)
 	{}
 	
-	Chtable() : Chtable(13, 2) {}
+	Table() : Table(13, 2) {}
 
 	unsigned count() const
 	{
@@ -145,9 +144,9 @@ public:
 	class Iter{
 		unsigned bucket_i;
 		unsigned slot_i;
-		Chtable<K, V, slots, Alloc> const * t;
+		Table<K, V, slots, Alloc> const * t;
 	public:
-		Iter(unsigned bucket, unsigned slot, Chtable<K, V, slots, Alloc> const * table)
+		Iter(unsigned bucket, unsigned slot, Table<K, V, slots, Alloc> const * table)
 		:
 			bucket_i(bucket),
 			slot_i(slot),
@@ -301,7 +300,7 @@ private:
 	bool grow(unsigned factor)
 	{
 		unsigned newSize = nextPrime(capacity() * factor);
-		Chtable<K, V, slots, Alloc> bigger( newSize , tables_);
+		Table<K, V, slots, Alloc> bigger( newSize , tables_);
 		for(auto slot : *this)
 		{
 			if(not bigger.trySet(slot.key, slot.val))
@@ -346,5 +345,9 @@ public:
 	}
 	
 };
+}
+
+
+
 
 #endif
