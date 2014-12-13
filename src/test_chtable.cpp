@@ -1,3 +1,6 @@
+// Copyright (c) 2014, ultramailman
+// This file is licensed under the MIT License.
+
 #include <iostream>
 #include <cassert>
 #include <ctime>
