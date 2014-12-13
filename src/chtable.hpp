@@ -6,6 +6,7 @@
 #include <vector>
 #include <tuple>
 #include <memory>
+#include "hash_mixer.hpp"
 namespace{
 	bool isPrime(unsigned x)
 	{
@@ -45,7 +46,18 @@ namespace{
 
 namespace cuckoo{
 template <class K>
-struct Hash;
+class Hash{
+	HashMixer<K> hashf;
+public:
+	Hash(unsigned n, unsigned seed)
+	:
+		hashf(n, seed)
+	{}
+	unsigned operator() (unsigned i, const K & key) const
+	{
+		return hashf(i, key);
+	}
+};
 
 template <class K, class V, unsigned slots>
 struct Bucket{

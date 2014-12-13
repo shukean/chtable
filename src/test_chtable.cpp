@@ -4,20 +4,6 @@
 #include "chtable.hpp"
 #include "hash_mixer.hpp"
 
-
-
-namespace cuckoo{
-template <>
-class Hash<unsigned> {
-	HashMixer<unsigned> hashf_;
-public:
-	Hash(unsigned k, unsigned seed) : hashf_(k, seed){}
-	unsigned operator () (unsigned i, unsigned k) const
-	{
-		return hashf_(i, k);
-	}
-};
-}
 static inline unsigned random(unsigned x)
 {
 	return (x * 16807) % ((2 << 31) - 1);
