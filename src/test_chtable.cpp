@@ -24,7 +24,7 @@ struct TableTester{
 	double capacity;
 	double totalLoad;
 	TableTester()
-		:t(30000, 2)
+		:t(30000)
 	{
 		unsigned seed = 10;
 		for(int i = 0; i < LENGTH; i++)

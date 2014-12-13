@@ -104,12 +104,12 @@ struct Bucket{
 
 template <	
 	class K, class V,
+	unsigned tables = 2,
 	unsigned slots = 2,
 	class Alloc = std::allocator< Bucket<K, V, slots> >
 >
 class Table{
 	unsigned count_;
-	unsigned tables_;
 	unsigned table_buckets_;
 	unsigned total_buckets_;
 	unsigned total_slots_;
@@ -118,21 +118,20 @@ class Table{
 	Hash<K> uhash_;
 	
 public:
-	Table( unsigned size , unsigned tables )
+	Table( unsigned size)
 	:
 		count_(0),
 		
-		tables_(tables),
 		table_buckets_( nextPrime(size / tables / slots + 1) ),
-		total_buckets_( tables_ * table_buckets_ ),
+		total_buckets_( tables * table_buckets_ ),
 		total_slots_(total_buckets_ * slots),
 		
 		array_(total_buckets_),
 		
-		uhash_(tables_, table_buckets_)
+		uhash_(tables, table_buckets_)
 	{}
 	
-	Table() : Table(13, 2) {}
+	Table() : Table(13) {}
 
 	unsigned count() const
 	{
@@ -155,12 +154,12 @@ public:
 		Pair(K k, V v):key(std::move(k)), val(std::move(v)){}
 	};
 	class Iter{
-		Table<K, V, slots, Alloc> const * t;
+		Table<K, V, tables, slots, Alloc> const * t;
 		unsigned bucket_i;
 		unsigned slot_i;
 		
 	public:
-		Iter(Table<K, V, slots, Alloc> const * table, unsigned bucket, unsigned slot)
+		Iter(Table<K, V, tables, slots, Alloc> const * table, unsigned bucket, unsigned slot)
 		:
 			t(table),
 			bucket_i(bucket),
@@ -212,7 +211,7 @@ public:
 	//.......................... SEARCH ......................................
 	std::tuple<V, bool> Get(K const & key) const
 	{
-		for(unsigned i = 0; i < tables_; i++)
+		for(unsigned i = 0; i < tables; i++)
 		{
 			unsigned hash = uhash_(i, key) % table_buckets_;
 			unsigned bucket_i = index(i, hash);
@@ -233,7 +232,7 @@ private:
 	// update val if key is found
 	bool update(K const & key, V val)
 	{
-		for(unsigned i = 0; i < tables_; i++) {
+		for(unsigned i = 0; i < tables; i++) {
 			unsigned hash = uhash_(i, key) % table_buckets_;
 			unsigned bucket_i = index(i, hash);
 			
@@ -278,7 +277,7 @@ private:
 	bool trySet(K key, V val)
 	{
 		K const original = key;
-		unsigned tries = tables_ + 1;
+		unsigned tries = tables + 1;
 		unsigned i = 0;
 		while(1)
 		{
@@ -295,7 +294,7 @@ private:
 				}
 			}
 			i++;
-			if(i == tables_)
+			if(i == tables)
 			{
 				i = 0;
 			}
@@ -306,7 +305,7 @@ private:
 	bool grow(unsigned factor)
 	{
 		unsigned newSize = nextPrime(capacity() * factor);
-		Table<K, V, slots, Alloc> bigger( newSize , tables_);
+		Table<K, V, tables, slots, Alloc> bigger( newSize );
 		for(auto slot : *this)
 		{
 			if(not bigger.trySet(slot.key, slot.val))
@@ -336,7 +335,7 @@ public:
 	//................................... DELETION .......................
 	bool Delete(K const & key)
 	{
-		for(unsigned i = 0; i < tables_; i++)
+		for(unsigned i = 0; i < tables; i++)
 		{
 			unsigned hash = uhash_(i, key) % table_buckets_;
 			unsigned bucket_i = index(i, hash);
