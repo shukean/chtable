@@ -48,188 +48,304 @@ namespace chtable{
 	struct Hash;
 
 }
-template <class K, class V>
-struct Slot{
-	unsigned present;
-	K key;
-	V val;
+template <class K, class V, unsigned slots>
+struct Bucket{
+	unsigned count;
+	K keys[slots];
+	V vals[slots];
+	bool full() const
+	{
+		return count == slots;
+	}
+	int Find(K const & key) const
+	{
+		for(unsigned i = 0; i < count; i++)
+		{
+			if(keys[i] == key)
+			{
+				return i;
+			}
+		}
+		return -1;
+	}
+	void Insert(K key, V val)
+	{
+		keys[count] = key;
+		vals[count] = val;
+		count++;
+	}
+	bool Delete(K const & key)
+	{
+		for(unsigned i = 0; i < count; i++)
+		{
+			if(keys[i] == key)
+			{
+				count--;
+				//std::swap(keys[i], keys[count]);
+				//std::swap(vals[i], vals[count]);
+				keys[i] = std::move(keys[count]);
+				vals[i] = std::move(vals[count]);
+				return true;
+			}
+		}
+		return false;
+	}
 };
 
-template <class K, class V, class Alloc = std::allocator< Slot<K, V> >>
+template <	
+	class K, class V,
+	unsigned slots = 2,
+	class Alloc = std::allocator< Bucket<K, V, slots> >
+>
 class Chtable{
 	unsigned count_;
-	unsigned slots_;
 	unsigned tables_;
-	std::vector< Slot<K, V>, Alloc > array_;
+	unsigned table_buckets_;
+	unsigned total_buckets_;
+	unsigned total_slots_;
+	
+	std::vector< Bucket<K, V, slots>, Alloc > array_;
 	chtable::Hash<K> uhash_;
 	
-	unsigned index(unsigned table, unsigned hash) const
-	{
-		return table * slots_ + hash;
-	}
-	
-	bool replace(K const & key, V val);
-	bool insert(K & key, V & val);
 public:
-	Chtable( unsigned size , unsigned tableCount)
+	Chtable( unsigned size , unsigned tables )
 	:
 		count_(0),
 		
-		slots_( nextPrime(size / tableCount + 1) ),
-		tables_(tableCount),
+		tables_(tables),
+		table_buckets_( nextPrime(size / tables / slots + 1) ),
+		total_buckets_( tables_ * table_buckets_ ),
+		total_slots_(total_buckets_ * slots),
 		
-		array_(capacity()),
+		array_(total_buckets_),
 		
-		uhash_(tables_, slots_)
+		uhash_(tables_, table_buckets_)
 	{}
 	
 	Chtable() : Chtable(13, 2) {}
 
-	unsigned count() const { return count_; }
-	unsigned capacity() const { return tables_ * slots_; }
-	std::tuple<V, bool> Get(K const & key) const;
-	bool Set(K key, V val);
-	bool Delete(K const & key);
-	
+	unsigned count() const
+	{
+		return count_;
+	}
+	unsigned capacity() const
+	{
+		return total_slots_;
+	}
+private:
+	unsigned index(unsigned table, unsigned hash) const
+	{
+		return table * table_buckets_ + hash;
+	}
+public:
+	//..................................ITERATOR
+	struct Pair{
+		K key;
+		V val;
+		Pair(K k, V v):key(k), val(v){}
+	};
 	class Iter{
-		unsigned i;
-		Chtable<K, V, Alloc> const * t;
+		unsigned bucket_i;
+		unsigned slot_i;
+		Chtable<K, V, slots, Alloc> const * t;
 	public:
-		Iter(unsigned index, Chtable<K, V, Alloc> * table)
-		{
-			i = index;
-			t = table;
-		}
+		Iter(unsigned bucket, unsigned slot, Chtable<K, V, slots, Alloc> const * table)
+		:
+			bucket_i(bucket),
+			slot_i(slot),
+			t(table)
+		{}
 		bool operator != (Iter const & other)
 		{
-			return other.i != i and other.t != t;
+			return other.bucket_i != bucket_i or other.slot_i != slot_i or other.t != t;
 		}
 		const Iter & operator++()
 		{
-			if(i == t->capacity())
+			if(t == nullptr)
+			{
 				return *this;
-			while(1) {
-				i++;
-				if(i < t->capacity())
-					return *this;
-				if(t->array_[i].present)
-					return *this;
 			}
+			
+			slot_i++;
+			if(slot_i < t->array_[bucket_i].count)
+			{
+				return *this;
+			}
+			
+			slot_i = 0;
+			bucket_i++;
+			while(bucket_i < t->total_buckets_)
+			{
+				if(slot_i < t->array_[bucket_i].count)
+				{
+					return *this;
+				}
+				bucket_i++;
+			}
+			slot_i = -1;
+			bucket_i = -1;
+			t = nullptr;
 			return *this;
 		}
-		const Slot<K, V> & operator*()
+		Pair operator*()
 		{
-			return t->array_[i];
+			auto & bucket = t->array_[bucket_i];
+			auto & key = bucket.keys[slot_i];
+			auto & val = bucket.vals[slot_i];
+			return Pair(key, val);
 		}
 	};
 	
-	Iter begin()
+	Iter begin() const
 	{
-		unsigned i = 0;
-		while(i < capacity() and not array_[i].present)
-			i++;
-		return Iter(i, this);
+		Iter iter(0, -1, this);
+		++iter;
+		return iter;
 	}
-	Iter end()
+	Iter end() const
 	{
-		Iter iter(capacity(), this);
-		return Iter(capacity(), this);
+		return Iter(-1, -1, nullptr);
 	}
-};
-
-//.......................... SEARCH ......................................
-template<class K, class V, class Alloc>
-std::tuple<V, bool> Chtable<K,V, Alloc>::
-Get(K const & key) const
-{
-	for(unsigned i = 0; i < tables_; i++) {
-		unsigned hash = uhash_(i, key) % slots_;
-		unsigned j = index(i, hash);
-		auto const & slot = array_[j];
-		if(slot.present and key == slot.key) {
-			return std::make_tuple(slot.val, true);
-		}
-	}
-	return std::make_tuple(V(), false);
-}
-
-//............................ INSERTION ..................................
-template<class K, class V, class Alloc>
-bool Chtable<K, V, Alloc>::
-replace(K const & key, V val)
-{
-	for(unsigned i = 0; i < tables_; i++) {
-		unsigned hash = uhash_(i, key) % slots_;
-		unsigned j = index(i, hash);
-		auto & slot = array_[j];
-		if(slot.present and key == slot.key) {
-			slot.val = val;
-			return true;
-		}
-	}
-	return false;
-}
-
-template<class K, class V, class Alloc>
-bool Chtable<K, V, Alloc>::
-insert(K & key, V & val)
-{
-	for(unsigned i = 0, timeout = tables_ * count_ + 1; timeout != 0; timeout--) {
-		unsigned hash = uhash_(i, key) % slots_;
-		unsigned j = index(i, hash);
-		auto & slot = array_[j];
-		std::swap(slot.key, key);
-		std::swap(slot.val, val);
-		
-		if(slot.present) {
-			i++;
-			if(i == tables_) {
-				i = 0;
+	//.......................... SEARCH ......................................
+	std::tuple<V, bool> Get(K const & key) const
+	{
+		for(unsigned i = 0; i < tables_; i++)
+		{
+			unsigned hash = uhash_(i, key) % table_buckets_;
+			unsigned bucket_i = index(i, hash);
+			
+			auto const & bucket = array_[bucket_i];
+			int slot_i = bucket.Find(key);
+			
+			if(slot_i >= 0)
+			{
+				V ret = bucket.vals[slot_i];
+				return std::make_tuple(ret, true);
 			}
-		} else {
-			slot.present = true;
+		}
+		return std::make_tuple(V(), false);
+	}
+	//............................ INSERTION ..................................
+private:
+	// update val if key is found
+	bool update(K const & key, V val)
+	{
+		for(unsigned i = 0; i < tables_; i++) {
+			unsigned hash = uhash_(i, key) % table_buckets_;
+			unsigned bucket_i = index(i, hash);
+			
+			auto & bucket = array_[bucket_i];
+			int slot_i = bucket.Find(key);
+			
+			if(slot_i >= 0)
+			{
+				bucket.vals[slot_i] = val;
+				return true;
+			}
+		}
+		return false;
+	}
+	// try to infiltrate a table.
+	// true for peaceful infiltration
+	// false for eviction
+	bool infiltrate(K & key, V & val, unsigned i)
+	{
+		unsigned hash = uhash_(i, key) % table_buckets_;
+		unsigned bucket_i = index(i, hash);
+		
+		auto & bucket = array_[bucket_i];
+		if(not bucket.full())
+		{
+			bucket.Insert(key, val);
 			count_++;
 			return true;
 		}
+		
+		std::swap(bucket.keys[0], key);
+		std::swap(bucket.vals[0], val);
+		
+		return false;
 	}
-	return false;
-}
-template<class K, class V, class Alloc>
-bool Chtable<K, V, Alloc>::
-Set(K key, V val)
-{
-	if(replace(key, val)) {
-		return true;
-	}
-	while(not insert(key, val)) {
-		Chtable<K, V> bigger( nextPrime(capacity() * 2) , tables_);
-		for(auto & slot : array_) {
-			if(slot.present) {
-				bigger.Set(slot.key, slot.val);
+
+	// try to set a new value.
+	// true if successful.
+	// false if cycle.
+	bool trySet(K key, V val)
+	{
+		K const original = key;
+		unsigned tries = tables_ + 1;
+		unsigned i = 0;
+		while(1)
+		{
+			if(infiltrate(key, val, i))
+			{
+				return true;
+			}
+			if(key == original)
+			{
+				tries--;
+				if(tries == 0)
+				{
+					return false;
+				}
+			}
+			i++;
+			if(i == tables_)
+			{
+				i = 0;
 			}
 		}
-		std::swap(*this, bigger);
+		return false;
+		
 	}
-	return true;
-}
-
-//................................... DELETION .......................
-template<class K, class V, class Alloc>
-bool Chtable<K, V, Alloc>::
-Delete(K const & key)
-{
-	for(unsigned i = 0; i < tables_; i++) {
-		unsigned hash = uhash_(i, key) % slots_;
-		unsigned j = index(i, hash);
-		auto & slot = array_[j];
-		if(slot.present and key == slot.key) {
-			slot.present = false;
-			slot.val = V();
-			count_--;
-			return true;
+	bool grow(unsigned factor)
+	{
+		unsigned newSize = nextPrime(capacity() * factor);
+		Chtable<K, V, slots, Alloc> bigger( newSize , tables_);
+		for(auto slot : *this)
+		{
+			if(not bigger.trySet(slot.key, slot.val))
+			{
+				return false;
+			}
+			
+		}
+		std::swap(*this, bigger);
+		return true;
+	}
+public:
+	void Set(K key, V val)
+	{
+		if(update(key, val))
+		{
+			return;
+		}
+		while(not trySet(key, val))
+		{
+			unsigned factor = 2;
+			while(not grow( factor ))
+			{
+				factor++;
+			}
 		}
 	}
-	return false;
-}
+	//................................... DELETION .......................
+	bool Delete(K const & key)
+	{
+		for(unsigned i = 0; i < tables_; i++)
+		{
+			unsigned hash = uhash_(i, key) % table_buckets_;
+			unsigned bucket_i = index(i, hash);
+			
+			auto & bucket = array_[bucket_i];
+			if(bucket.Delete(key))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+	
+};
 
 #endif
