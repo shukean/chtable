@@ -29,13 +29,13 @@ template<unsigned LENGTH>
 struct ChtableTester{
 	unsigned data [LENGTH];
 	unsigned membership[LENGTH];
-	Chtable<unsigned, unsigned > t;
+	Chtable<unsigned, unsigned> t;
 	double maxLoad;
 	double count;
 	double capacity;
 	double totalLoad;
 	ChtableTester()
-		:t(13, 2)
+		:t(30000, 2)
 	{
 		unsigned seed = 10;
 		for(int i = 0; i < LENGTH; i++)
@@ -53,8 +53,7 @@ struct ChtableTester{
 	{
 		clock_t t1 = clock();
 		for(unsigned i = 0; i < LENGTH; i++) {
-			bool good = t.Set(data[i], i);
-			assert(good);
+			t.Set(data[i], i);
 
 			bool found;
 			unsigned val;
@@ -72,8 +71,9 @@ struct ChtableTester{
 		clock_t t2 = clock();
 		return t2 - t1;
 	}
-	void testFind()
+	clock_t testFind()
 	{
+		clock_t t1 = clock();
 		for(unsigned i = 0; i < LENGTH; i++)
 		{
 			bool found;
@@ -84,10 +84,13 @@ struct ChtableTester{
 			else if( val != i)
 				fputs("data error 3\n", stderr);
 		}
+		clock_t t2 = clock();
+		return t2 - t1;
 	}
 	
-	void testDelete()
+	clock_t testDelete()
 	{
+		clock_t t1 = clock();
 		for(unsigned i = 0; i < LENGTH; i++)
 		{
 			bool found;
@@ -95,22 +98,27 @@ struct ChtableTester{
 			std::tie(val, found) = t.Get(data[i]);
 			if( found )
 			{
-				t.Delete(data[i]);
-				
+				bool good = t.Delete(data[i]);
+				assert(good);
 				std::tie(val, found) = t.Get(data[i]);
 				if( found )
 					puts("removal error");
 			}
 		}
+		clock_t t2 = clock();
+		return t2 - t1;
 	}
-	void testIterator()
+	clock_t testIterator()
 	{
-		for(auto & pair : t)
+		clock_t t1 = clock();
+		for(auto pair : t)
 		{
 			unsigned i = pair.val;
 			if(data[i] != pair.key)
-				fputs("data error\n", stderr);
+				fputs("iterator error\n", stderr);
 		}
+		clock_t t2 = clock();
+		return t2 - t1;
 	}
 };
 int main(void)
@@ -124,19 +132,16 @@ int main(void)
 		"max load: " << t.maxLoad << std::endl <<
 		"current load: " << t.count / t.capacity << std::endl << 
 		"average load: " << t.totalLoad / t.count << std::endl <<
-		"time: " << insertTime << std::endl;
-	t.testFind();
-	t.testDelete();
-	t.testIterator();
-	// test iterator
+		"insert time: " << insertTime << std::endl;
+		
+	clock_t findTime = t.testFind();
+	std::cout << "find time: " << findTime << std::endl;
 	
+	clock_t iterTime = t.testIterator();
+	std::cout << "iter time: " << iterTime << std::endl;
 	
-	// test find
-	
-	
-	// test removal
-	
-	
-	
+	clock_t deleteTime = t.testDelete();
+	std::cout << "delete time: " << deleteTime << std::endl;
+
 	return 0;
  }
