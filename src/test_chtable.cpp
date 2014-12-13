@@ -16,15 +16,17 @@ static inline unsigned random(unsigned x)
 
 template<unsigned LENGTH>
 struct TableTester{
-	unsigned data [LENGTH];
-	unsigned membership[LENGTH];
+	std::vector<unsigned> data;
+	std::vector<bool> membership;
 	cuckoo::Table<unsigned, unsigned> t;
 	double maxLoad;
 	double count;
 	double capacity;
 	double totalLoad;
 	TableTester()
-		:t(30000)
+	:
+		data(LENGTH),
+		membership(LENGTH)
 	{
 		unsigned seed = 10;
 		for(int i = 0; i < LENGTH; i++)
@@ -116,7 +118,7 @@ struct TableTester{
 int main(void)
 {
 	
-	TableTester<30000> t;
+	TableTester<300000> t;
 	clock_t insertTime = t.testInsert();
 	
 	std::cout << "count: " << t.count << std::endl <<
