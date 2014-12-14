@@ -26,7 +26,8 @@ struct TableTester{
 	TableTester()
 	:
 		data(LENGTH),
-		membership(LENGTH)
+		membership(LENGTH),
+		t(LENGTH)
 	{
 		unsigned seed = 10;
 		for(int i = 0; i < LENGTH; i++)
