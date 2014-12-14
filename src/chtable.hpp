@@ -59,6 +59,10 @@ public:
 	}
 };
 
+/* This is a bucket.
+A bucket is an item in the hash table array.
+Each bucket can have one or more key-value pairs.
+*/
 template <class K, class V, unsigned slots>
 struct Bucket{
 	unsigned count;
@@ -102,6 +106,13 @@ struct Bucket{
 	}
 };
 
+/* This is THE table implementation.
+K: key type
+V: value type
+tables: the number of subtables. Must be greater than 1.
+slots: the number of slots per bucket. Must be greater than 0.
+Alloc: the allocator of the array.
+*/
 template <	
 	class K, class V,
 	unsigned tables = 2,
@@ -109,15 +120,32 @@ template <
 	class Alloc = std::allocator< Bucket<K, V, slots> >
 >
 class Table{
+	// current number of key value pairs
 	unsigned count_;
-	unsigned table_buckets_;
-	unsigned total_buckets_;
-	unsigned total_slots_;
 	
+	// buckets per subtable
+	unsigned table_buckets_; 
+	
+	// buckets per Table
+	unsigned total_buckets_; 
+	
+	// slots per Table
+	unsigned total_slots_; 
+	
+	// The array of buckets. It looks like one array, but it is
+	// logically a two dimensional array.
 	std::vector< Bucket<K, V, slots>, Alloc > array_;
+	
+	// A family of hash functions.
+	// A hash function is chosen from the family, depending on which subtable
+	//	a key value pair is going to be stored.
 	Hash<K> uhash_;
 	
 public:
+	/* Constructor.
+	The size parameter is the number of pairs the table can store.
+	If it is not prime, it will be raised to the next prime number.
+	*/
 	Table( unsigned size)
 	:
 		count_(0),
@@ -142,20 +170,31 @@ public:
 		return total_slots_;
 	}
 private:
+	// this turns a 2d array index into a 1d array index
 	unsigned index(unsigned table, unsigned hash) const
 	{
 		return table * table_buckets_ + hash;
 	}
 public:
 	//..................................ITERATOR
+	
+	// This is the container returned by the iterator * operator.
 	struct Pair{
 		K key;
 		V val;
 		Pair(K k, V v):key(std::move(k)), val(std::move(v)){}
 	};
+	
+	// This is the iterator class.
 	class Iter{
+		// point to a table while the iterator is valid.
+		// point to null when it is invalid.
 		Table<K, V, tables, slots, Alloc> const * t;
+		
+		// current bucket index
 		unsigned bucket_i;
+		
+		// current slot index within the bucket.
 		unsigned slot_i;
 		
 	public:
@@ -169,6 +208,8 @@ public:
 		{
 			return not (other.t == t and other.bucket_i == bucket_i and other.slot_i == slot_i);
 		}
+		// increment slot index until it reaches the end of the bucket.
+		// then increment bucket index until the next non empty bucket is found
 		const Iter & operator++()
 		{
 			slot_i++;
@@ -198,17 +239,21 @@ public:
 		}
 	};
 	
+	// set the iterator to one before 0, then increment it.
 	Iter begin() const
 	{
 		Iter iter(this, 0, -1);
 		++iter;
 		return iter;
 	}
+	// an end iterator is all null and zeros.
 	Iter end() const
 	{
 		return Iter(nullptr, 0, 0);
 	}
 	//.......................... SEARCH ......................................
+	// go through each sub table and try to find the key.
+	// returns the value, and a bool indicating if the key was found.
 	std::tuple<V, bool> Get(K const & key) const
 	{
 		for(unsigned i = 0; i < tables; i++)
@@ -228,8 +273,11 @@ public:
 		return std::make_tuple(V(), false);
 	}
 	//............................ INSERTION ..................................
+	// insertion is more complicated, so it is split in many functions.
 private:
-	// update val if key is found
+	// Try to find the key, and update its val if it is found.
+	// returns a bool indicating if the operation was successful.
+	// this only needs to be executed once per insertion.
 	bool update(K const & key, V val)
 	{
 		for(unsigned i = 0; i < tables; i++) {
@@ -247,11 +295,12 @@ private:
 		}
 		return false;
 	}
-	// try to infiltrate a table.
-	// that means inserting the key into one of its designated buckets.
-	// returns true for peaceful infiltration.
+	// Insert a key value pair into a subtable.
+	// This operation may kick out an old occupant.
+	// i is the subtable number.
+	// returns true for peaceful insertion.
 	// returns false for eviction.
-	bool infiltrate(K & key, V & val, unsigned i)
+	bool insert(K & key, V & val, unsigned i)
 	{
 		unsigned hash = uhash_(i, key) % table_buckets_;
 		unsigned bucket_i = index(i, hash);
@@ -270,18 +319,18 @@ private:
 		return false;
 	}
 
-	// try to set a new value.
-	// true if successful.
-	// false if cycle.
+	// Try to insert a new value.
+	// It can fail by running into a graph cycle.
+	// returns a bool indicating success.
 	// pre condition: key is not in the table
-	bool trySet(K key, V val)
+	bool tryInsert(K key, V val)
 	{
 		K const original = key;
 		unsigned tries = tables + 1;
 		unsigned i = 0;
 		while(1)
 		{
-			if(infiltrate(key, val, i))
+			if(insert(key, val, i))
 			{
 				return true;
 			}
@@ -302,13 +351,15 @@ private:
 		return false;
 		
 	}
+	
+	// Make the table bigger.
 	bool grow(unsigned factor)
 	{
 		unsigned newSize = nextPrime(capacity() * factor);
 		Table<K, V, tables, slots, Alloc> bigger( newSize );
 		for(auto slot : *this)
 		{
-			if(not bigger.trySet(slot.key, slot.val))
+			if(not bigger.tryInsert(slot.key, slot.val))
 			{
 				return false;
 			}
@@ -317,13 +368,15 @@ private:
 		return true;
 	}
 public:
+	// Writes a key and value pair.
+	// This operation may increase table size.
 	void Set(K key, V val)
 	{
 		if(update(key, val))
 		{
 			return;
 		}
-		while(not trySet(key, val))
+		while(not tryInsert(key, val))
 		{
 			unsigned factor = 2;
 			while(not grow( factor ))
@@ -333,6 +386,8 @@ public:
 		}
 	}
 	//................................... DELETION .......................
+	// Deletes a key value pair.
+	// returns a bool indicating success.
 	bool Delete(K const & key)
 	{
 		for(unsigned i = 0; i < tables; i++)
